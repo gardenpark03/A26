@@ -31,26 +31,30 @@ export default async function TimelinePage({ searchParams }: PageProps) {
   const startDateStr = `${year}-01-01`
   const endDateStr = `${year}-12-31`
 
-  // Fetch Goals
-  const { data: goals } = await supabase
-    .from("goals")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("year", year)
+  // 병렬 쿼리 실행 (필요한 필드만)
+  const [goalsRes, milestonesRes, tasksRes] = await Promise.all([
+    supabase
+      .from("goals")
+      .select("id, title, description, status, year")
+      .eq("user_id", user.id)
+      .eq("year", year),
+    supabase
+      .from("milestones")
+      .select("id, title, description, status, goal_id, start_date, due_date, created_at")
+      .eq("user_id", user.id)
+      .or(`start_date.gte.${startDateStr},start_date.lte.${endDateStr},due_date.gte.${startDateStr},due_date.lte.${endDateStr}`)
+      .limit(200), // 최대 200개
+    supabase
+      .from("tasks")
+      .select("id, title, description, status, priority, goal_id, milestone_id, scheduled_date, due_date, created_at")
+      .eq("user_id", user.id)
+      .or(`scheduled_date.gte.${startDateStr},scheduled_date.lte.${endDateStr},due_date.gte.${startDateStr},due_date.lte.${endDateStr}`)
+      .limit(500), // 최대 500개
+  ])
 
-  // Fetch Milestones
-  const { data: milestones } = await supabase
-    .from("milestones")
-    .select("*")
-    .eq("user_id", user.id)
-    .or(`start_date.gte.${startDateStr},start_date.lte.${endDateStr},due_date.gte.${startDateStr},due_date.lte.${endDateStr}`)
-
-  // Fetch Tasks
-  const { data: tasks } = await supabase
-    .from("tasks")
-    .select("*")
-    .eq("user_id", user.id)
-    .or(`scheduled_date.gte.${startDateStr},scheduled_date.lte.${endDateStr},due_date.gte.${startDateStr},due_date.lte.${endDateStr}`)
+  const goals = goalsRes.data
+  const milestones = milestonesRes.data
+  const tasks = tasksRes.data
 
   // Map to TimelineItem
   const timelineItems: TimelineItem[] = []

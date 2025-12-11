@@ -1,8 +1,23 @@
 import { redirect } from "next/navigation"
+import dynamic from "next/dynamic"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent } from "@/components/ui/card"
-import { GraphView } from "@/components/memory-graph/graph-view"
 import type { MemoryGraphData, GraphNode, GraphEdge } from "@/lib/memory-graph/types"
+
+// GraphView를 동적 import로 처리 (SSR 비활성화)
+const GraphView = dynamic(
+  () => import("@/components/memory-graph/graph-view").then(mod => ({ default: mod.GraphView })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-[600px]">
+        <div className="animate-pulse text-muted-foreground">
+          그래프 로딩 중...
+        </div>
+      </div>
+    ),
+  }
+)
 
 export default async function MemoryGraphPage() {
   const supabase = await createClient()
@@ -15,41 +30,47 @@ export default async function MemoryGraphPage() {
     redirect("/login")
   }
 
-  // Fetch all data
-  const { data: goals } = await supabase
-    .from("goals")
-    .select("*")
-    .eq("user_id", user.id)
+  // 병렬 쿼리 실행 (필요한 필드만 선택)
+  const [goalsRes, milestonesRes, tasksRes, logsRes, projectsRes, resourcesRes] = await Promise.all([
+    supabase
+      .from("goals")
+      .select("id, title, description, year, status")
+      .eq("user_id", user.id)
+      .limit(50), // 최대 50개로 제한
+    supabase
+      .from("milestones")
+      .select("id, title, description, goal_id, status, due_date")
+      .eq("user_id", user.id)
+      .limit(150), // 150개로 제한
+    supabase
+      .from("tasks")
+      .select("id, title, description, goal_id, milestone_id, status, priority, scheduled_date")
+      .eq("user_id", user.id)
+      .limit(300), // 300개로 제한
+    supabase
+      .from("logs")
+      .select("id, title, content, log_date, mood, tags, related_goal_id, related_milestone_id, related_task_id")
+      .eq("user_id", user.id)
+      .order("log_date", { ascending: false })
+      .limit(150), // 150개로 제한
+    supabase
+      .from("projects")
+      .select("id, title, description, color")
+      .eq("user_id", user.id)
+      .limit(30), // 최대 30개로 제한
+    supabase
+      .from("project_resources")
+      .select("id, title, content, url, project_id, resource_type, tags")
+      .eq("user_id", user.id)
+      .limit(200), // 200개로 제한
+  ])
 
-  const { data: milestones } = await supabase
-    .from("milestones")
-    .select("*")
-    .eq("user_id", user.id)
-    .limit(200)
-
-  const { data: tasks } = await supabase
-    .from("tasks")
-    .select("*")
-    .eq("user_id", user.id)
-    .limit(500)
-
-  const { data: logs } = await supabase
-    .from("logs")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("log_date", { ascending: false })
-    .limit(200)
-
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("user_id", user.id)
-
-  const { data: resources } = await supabase
-    .from("project_resources")
-    .select("*")
-    .eq("user_id", user.id)
-    .limit(300)
+  const goals = goalsRes.data
+  const milestones = milestonesRes.data
+  const tasks = tasksRes.data
+  const logs = logsRes.data
+  const projects = projectsRes.data
+  const resources = resourcesRes.data
 
   // Build graph data
   const nodes: GraphNode[] = []

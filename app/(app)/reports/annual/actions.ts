@@ -19,40 +19,52 @@ export async function generateAnnualReportAction(year: number) {
     const fromDate = `${year}-01-01`
     const toDate = `${year}-12-31`
 
-    // Fetch Goals
-    const { data: allGoals } = await supabase
-      .from("goals")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("year", year)
+    // 병렬 쿼리 실행 (필요한 필드만)
+    const [goalsRes, tasksRes, logsRes] = await Promise.all([
+      supabase
+        .from("goals")
+        .select("id, status, title")
+        .eq("user_id", user.id)
+        .eq("year", year),
+      supabase
+        .from("tasks")
+        .select("id, status, due_date, created_at, scheduled_date, title")
+        .eq("user_id", user.id)
+        .or(`scheduled_date.gte.${fromDate},scheduled_date.lte.${toDate},created_at.gte.${fromDate}T00:00:00,created_at.lte.${toDate}T23:59:59`)
+        .limit(2000), // 최대 2000개
+      supabase
+        .from("logs")
+        .select("id, mood, tags, log_date, content, title")
+        .eq("user_id", user.id)
+        .gte("log_date", fromDate)
+        .lte("log_date", toDate)
+        .order("log_date", { ascending: false })
+        .limit(1000), // 최대 1000개
+    ])
+
+    const allGoals = goalsRes.data || []
+    const allTasks = tasksRes.data || []
+    const allLogs = logsRes.data || []
 
     const goalsSummary = {
-      total: allGoals?.length || 0,
-      completed: allGoals?.filter((g) => g.status === "completed").length || 0,
-      inProgress: allGoals?.filter((g) => g.status === "active" || g.status === "in_progress").length || 0,
-      abandoned: allGoals?.filter((g) => g.status === "archived" || g.status === "paused").length || 0,
+      total: allGoals.length,
+      completed: allGoals.filter((g) => g.status === "completed").length,
+      inProgress: allGoals.filter((g) => g.status === "active" || g.status === "in_progress").length,
+      abandoned: allGoals.filter((g) => g.status === "archived" || g.status === "paused").length,
     }
 
-    // Fetch Tasks
-    const { data: allTasks } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("user_id", user.id)
-      .or(`scheduled_date.gte.${fromDate},scheduled_date.lte.${toDate},created_at.gte.${fromDate}T00:00:00,created_at.lte.${toDate}T23:59:59`)
-
-    const completedTasks = allTasks?.filter((t) => t.status === "done").length || 0
-    const overdueTasks =
-      allTasks?.filter(
-        (t) => t.due_date && new Date(t.due_date) < new Date() && t.status !== "done"
-      ).length || 0
+    const completedTasks = allTasks.filter((t) => t.status === "done").length
+    const overdueTasks = allTasks.filter(
+      (t) => t.due_date && new Date(t.due_date) < new Date() && t.status !== "done"
+    ).length
 
     // Tasks by month
     const tasksByMonth: { month: number; completed: number; created: number }[] = []
     for (let m = 1; m <= 12; m++) {
-      const monthTasks = allTasks?.filter((t) => {
+      const monthTasks = allTasks.filter((t) => {
         const createdMonth = new Date(t.created_at).getMonth() + 1
         return createdMonth === m
-      }) || []
+      })
       const completedInMonth = monthTasks.filter((t) => t.status === "done").length
 
       tasksByMonth.push({
@@ -63,20 +75,11 @@ export async function generateAnnualReportAction(year: number) {
     }
 
     const tasksSummary = {
-      total: allTasks?.length || 0,
+      total: allTasks.length,
       completed: completedTasks,
       overdue: overdueTasks,
       byMonth: tasksByMonth,
     }
-
-    // Fetch Logs
-    const { data: allLogs } = await supabase
-      .from("logs")
-      .select("*")
-      .eq("user_id", user.id)
-      .gte("log_date", fromDate)
-      .lte("log_date", toDate)
-      .order("log_date", { ascending: false })
 
     const moodsCount: Record<string, number> = {}
     allLogs?.forEach((log) => {
@@ -115,38 +118,43 @@ export async function generateAnnualReportAction(year: number) {
       topTags,
     }
 
-    // Fetch Habits
-    const { data: allHabits } = await supabase
-      .from("habits")
-      .select("*")
-      .eq("user_id", user.id)
+    // 추가 데이터 병렬 조회 (habits, projects)
+    const [habitsRes, habitLogsRes, projectsRes] = await Promise.all([
+      supabase
+        .from("habits")
+        .select("id")
+        .eq("user_id", user.id),
+      supabase
+        .from("habit_logs")
+        .select("id, log_date")
+        .eq("user_id", user.id)
+        .gte("log_date", fromDate)
+        .lte("log_date", toDate),
+      supabase
+        .from("projects")
+        .select("id, title, description")
+        .eq("user_id", user.id)
+        .limit(50), // 최대 50개
+    ])
 
-    const { data: allHabitLogs } = await supabase
-      .from("habit_logs")
-      .select("*")
-      .eq("user_id", user.id)
-      .gte("log_date", fromDate)
-      .lte("log_date", toDate)
+    const allHabits = habitsRes.data || []
+    const allHabitLogs = habitLogsRes.data || []
+    const allProjects = projectsRes.data || []
 
     const habitsSummary = {
-      totalHabits: allHabits?.length || 0,
-      totalCheckins: allHabitLogs?.length || 0,
+      totalHabits: allHabits.length,
+      totalCheckins: allHabitLogs.length,
       longestStreak: 0, // Simplified for v1
       currentStreak: 0, // Simplified for v1
     }
 
-    // Fetch Projects
-    const { data: allProjects } = await supabase
-      .from("projects")
-      .select("*")
-      .eq("user_id", user.id)
-
-    const highlightProjects =
-      allProjects?.map((p) => `${p.title}${p.description ? ` - ${p.description.slice(0, 80)}` : ""}`).slice(0, 5) || []
+    const highlightProjects = allProjects
+      .map((p) => `${p.title}${p.description ? ` - ${p.description.slice(0, 80)}` : ""}`)
+      .slice(0, 5)
 
     const projectsSummary = {
-      totalProjects: allProjects?.length || 0,
-      activeProjects: allProjects?.length || 0,
+      totalProjects: allProjects.length,
+      activeProjects: allProjects.length,
       completedProjects: 0, // Simplified for v1
     }
 

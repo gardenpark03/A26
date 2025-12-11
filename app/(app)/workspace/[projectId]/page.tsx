@@ -26,25 +26,30 @@ export default async function ProjectPage({ params }: PageProps) {
     redirect("/login")
   }
 
-  // Fetch project
-  const { data: project, error: projectError } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", projectId)
-    .eq("user_id", user.id)
-    .single()
+  // 병렬 쿼리 실행
+  const [projectRes, resourcesRes] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("id, title, description, color, ai_summary, created_at")
+      .eq("id", projectId)
+      .eq("user_id", user.id)
+      .single(),
+    supabase
+      .from("project_resources")
+      .select("id, title, content, url, resource_type, tags, created_at")
+      .eq("project_id", projectId)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(200), // 최대 200개
+  ])
+
+  const project = projectRes.data
+  const projectError = projectRes.error
+  const resources = resourcesRes.data
 
   if (projectError || !project) {
     notFound()
   }
-
-  // Fetch resources
-  const { data: resources } = await supabase
-    .from("project_resources")
-    .select("*")
-    .eq("project_id", projectId)
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
 
   const aiSummary = project.ai_summary as ProjectSummaryPayload | null
 

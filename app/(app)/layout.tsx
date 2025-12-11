@@ -18,10 +18,10 @@ export default async function AppLayout({
     redirect("/login")
   }
 
-  // Optionally fetch profile
+  // Fetch only required profile fields
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*")
+    .select("full_name, username")
     .eq("id", user.id)
     .single()
 

@@ -22,23 +22,27 @@ export default async function HabitsPage() {
 
   const today = new Date().toISOString().split("T")[0]
 
-  // Fetch habits
-  const { data: habits } = await supabase
-    .from("habits")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("is_archived", false)
-    .order("created_at", { ascending: false })
+  // 병렬 쿼리 실행
+  const [habitsRes, todayLogsRes] = await Promise.all([
+    supabase
+      .from("habits")
+      .select("id, title, description, cadence, days_of_week, color, icon, created_at")
+      .eq("user_id", user.id)
+      .eq("is_archived", false)
+      .order("created_at", { ascending: false })
+      .limit(100), // 최대 100개
+    supabase
+      .from("habit_logs")
+      .select("habit_id, status")
+      .eq("user_id", user.id)
+      .eq("log_date", today),
+  ])
 
-  // Fetch today's logs
-  const { data: todayLogs } = await supabase
-    .from("habit_logs")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("log_date", today)
+  const habits = habitsRes.data || []
+  const todayLogs = todayLogsRes.data || []
 
   const todayLogsMap = new Map<string, string>()
-  todayLogs?.forEach((log) => {
+  todayLogs.forEach((log) => {
     todayLogsMap.set(log.habit_id, log.status)
   })
 

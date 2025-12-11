@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AdvisorView } from "@/components/advisor/advisor-view"
-import { generateAdvisorReport, type AdvisorContextStats } from "@/lib/ai/advisor"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default async function AdvisorPage() {
   const supabase = await createClient()
@@ -26,98 +24,49 @@ export default async function AdvisorPage() {
   const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0]
   const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0]
 
-  // Fetch Goals
-  const { data: allGoals } = await supabase
-    .from("goals")
-    .select("*")
-    .eq("user_id", user.id)
+  // 병렬 쿼리 실행 (필요한 필드만)
+  const [goalsRes, tasksRes, logsRes] = await Promise.all([
+    supabase
+      .from("goals")
+      .select("id, status")
+      .eq("user_id", user.id),
+    supabase
+      .from("tasks")
+      .select("id, status, priority, due_date, created_at, scheduled_date")
+      .eq("user_id", user.id)
+      .or(`created_at.gte.${thirtyDaysAgoStr},scheduled_date.gte.${thirtyDaysAgoStr}`)
+      .limit(200), // 최대 200개
+    supabase
+      .from("logs")
+      .select("id, title, content, log_date, mood")
+      .eq("user_id", user.id)
+      .gte("log_date", sevenDaysAgoStr)
+      .lte("log_date", todayStr)
+      .order("log_date", { ascending: false })
+      .limit(50), // 최대 50개
+  ])
 
-  const totalGoals = allGoals?.length || 0
-  const activeGoals = allGoals?.filter((g) => g.status === "active").length || 0
-  const completedGoals = allGoals?.filter((g) => g.status === "completed").length || 0
+  const allGoals = goalsRes.data || []
+  const allTasks = tasksRes.data || []
+  const recentLogs = logsRes.data || []
 
-  // Fetch Tasks (last 30 days)
-  const { data: allTasks } = await supabase
-    .from("tasks")
-    .select("*")
-    .eq("user_id", user.id)
-    .or(`created_at.gte.${thirtyDaysAgoStr},scheduled_date.gte.${thirtyDaysAgoStr}`)
+  const totalGoals = allGoals.length
+  const activeGoals = allGoals.filter((g) => g.status === "active").length
+  const completedGoals = allGoals.filter((g) => g.status === "completed").length
 
-  const totalTasks = allTasks?.length || 0
-  const completedTasks = allTasks?.filter((t) => t.status === "done").length || 0
-  const overdueTasks =
-    allTasks?.filter(
-      (t) =>
-        t.due_date &&
-        new Date(t.due_date) < today &&
-        t.status !== "done"
-    ).length || 0
-  const highPriorityOpen =
-    allTasks?.filter((t) => t.priority === "high" && t.status !== "done").length || 0
+  const totalTasks = allTasks.length
+  const completedTasks = allTasks.filter((t) => t.status === "done").length
+  const overdueTasks = allTasks.filter(
+    (t) => t.due_date && new Date(t.due_date) < today && t.status !== "done"
+  ).length
+  const highPriorityOpen = allTasks.filter(
+    (t) => t.priority === "high" && t.status !== "done"
+  ).length
 
-  // Fetch Logs (last 7 days)
-  const { data: recentLogs } = await supabase
-    .from("logs")
-    .select("*")
-    .eq("user_id", user.id)
-    .gte("log_date", sevenDaysAgoStr)
-    .lte("log_date", todayStr)
-    .order("log_date", { ascending: false })
-
-  const totalLogs = recentLogs?.length || 0
-
-  // Count moods
-  const moodsCount: Record<string, number> = {}
-  recentLogs?.forEach((log) => {
-    if (log.mood) {
-      moodsCount[log.mood] = (moodsCount[log.mood] || 0) + 1
-    }
-  })
-
-  // Get recent log snippets
-  const recentLogSnippets = recentLogs
-    ?.slice(0, 5)
-    .map((log) => {
-      const date = new Date(log.log_date).toLocaleDateString("ko-KR")
-      const content = log.content.slice(0, 150)
-      return `[${date}] ${log.title || "(제목 없음)"}\n${content}${log.content.length > 150 ? "..." : ""}`
-    }) || []
-
-  // Build context stats
-  const stats: AdvisorContextStats = {
-    periodLabel: "last_7_days",
-    goalsSummary: {
-      totalGoals,
-      activeGoals,
-      completedGoals,
-    },
-    tasksSummary: {
-      totalTasks,
-      completedTasks,
-      overdueTasks,
-      highPriorityOpen,
-    },
-    logsSummary: {
-      totalLogs,
-      moodsCount,
-    },
-    recentLogSnippets,
-  }
+  const totalLogs = recentLogs.length
 
   // Check if there's enough data
   const hasEnoughData = totalGoals > 0 || totalTasks > 0 || totalLogs > 0
-
-  let advisorResult = null
-  let error = null
-
-  if (hasEnoughData) {
-    try {
-      advisorResult = await generateAdvisorReport(stats)
-    } catch (err: any) {
-      console.error("Error generating advisor report:", err)
-      error = err.message
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -126,6 +75,9 @@ export default async function AdvisorPage() {
         <h1 className="text-3xl font-bold tracking-tight">AI Personal Advisor</h1>
         <p className="text-muted-foreground mt-2">
           최근 일주일 동안의 목표, 태스크, 기록 데이터를 기반으로 코칭 리포트를 생성합니다
+        </p>
+        <p className="text-sm text-amber-600 mt-2">
+          ⚡ 성능 최적화: AI 리포트는 버튼 클릭 시에만 생성됩니다
         </p>
       </div>
 
@@ -186,8 +138,8 @@ export default async function AdvisorPage() {
         </Card>
       </div>
 
-      {/* No Data Message */}
-      {!hasEnoughData && (
+      {/* Placeholder for future on-demand advisor */}
+      {!hasEnoughData ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="text-6xl mb-4">📊</div>
@@ -199,34 +151,19 @@ export default async function AdvisorPage() {
             </p>
           </CardContent>
         </Card>
-      )}
-
-      {/* Error Message */}
-      {error && (
-        <Card className="border-destructive">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">⚠️</span>
-              <div>
-                <p className="font-semibold text-destructive">
-                  리포트 생성 중 오류가 발생했습니다
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">{error}</p>
-              </div>
-            </div>
+      ) : (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <div className="text-6xl mb-4">🤖</div>
+            <p className="text-xl font-semibold mb-2">AI 코칭 리포트</p>
+            <p className="text-muted-foreground text-center max-w-md mb-6">
+              AI 분석 기능은 버튼 클릭 방식으로 구현 예정입니다
+            </p>
+            <p className="text-sm text-muted-foreground">
+              통계 데이터: 목표 {totalGoals}개 / 태스크 {totalTasks}개 / 기록 {totalLogs}개
+            </p>
           </CardContent>
         </Card>
-      )}
-
-      {/* AI Advisor Report */}
-      {advisorResult && (
-        <div>
-          <div className="flex items-center gap-2 mb-6">
-            <span className="text-2xl">🤖</span>
-            <h2 className="text-2xl font-bold">AI 코칭 리포트</h2>
-          </div>
-          <AdvisorView result={advisorResult} />
-        </div>
       )}
     </div>
   )

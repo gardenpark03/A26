@@ -1,12 +1,24 @@
 import { redirect } from "next/navigation"
+import dynamic from "next/dynamic"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AnnualReportView } from "@/components/reports/annual-report-view"
 import { generateAnnualReportAction } from "./actions"
 import type { AnnualReportPayload } from "@/lib/ai/annual-report"
+
+// Dynamic import for AnnualReportView (heavy component)
+const AnnualReportView = dynamic(
+  () => import("@/components/reports/annual-report-view").then(mod => ({ default: mod.AnnualReportView })),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-pulse text-muted-foreground">리포트 로딩 중...</div>
+      </div>
+    ),
+  }
+)
 
 interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>

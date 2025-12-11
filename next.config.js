@@ -7,11 +7,21 @@ const nextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
   },
   
   // 실험적 기능 (속도 개선)
   experimental: {
-    optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
+    optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react', '@radix-ui/react-avatar', '@radix-ui/react-select'],
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
   },
   
   // 컴파일러 최적화

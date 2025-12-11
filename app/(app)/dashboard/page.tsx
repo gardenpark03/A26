@@ -75,7 +75,7 @@ async function getOrCreateProfile(userId: string, userEmail: string) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("*")
+    .select("id, full_name, username")
     .eq("id", userId)
     .single()
 
@@ -92,11 +92,10 @@ async function getOrCreateProfile(userId: string, userEmail: string) {
         username,
         full_name: username,
       })
-      .select()
+      .select("id, full_name, username")
       .single()
 
     if (insertError) {
-      console.error("프로필 생성 실패:", insertError)
       return null
     }
 
@@ -189,40 +188,38 @@ export default async function DashboardPage() {
     redirect("/login")
   }
 
-  const profile = await getOrCreateProfile(user.id, user.email || "")
   const today = new Date().toISOString().split("T")[0]
-
-  // Get widget settings
-  const widgetSettings = await getWidgetSettings(user.id)
-  const enabledWidgets = widgetSettings.filter((w) => w.is_enabled)
-
-  // Fetch today's tasks
-  const { data: tasks } = await supabase
-    .from("tasks")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("scheduled_date", today)
-    .order("priority", { ascending: false })
-    .order("created_at", { ascending: true })
-
-  const todayTasks = (tasks as Task[]) || []
-  const completedTasks = todayTasks.filter((task) => task.status === "done").length
-  const totalTasks = todayTasks.length
-
-  // Fetch activity data for last 12 weeks
   const todayDate = new Date()
   const startDate = new Date(todayDate)
   startDate.setDate(todayDate.getDate() - 83)
   const startDateStr = startDate.toISOString().split("T")[0]
 
-  const { data: activityLogs } = await supabase
-    .from("logs")
-    .select("*")
-    .eq("user_id", user.id)
-    .gte("log_date", startDateStr)
-    .lte("log_date", today)
+  // 병렬 쿼리 실행 (4개 쿼리를 동시에)
+  const [profile, widgetSettings, tasksRes, activityLogsRes] = await Promise.all([
+    getOrCreateProfile(user.id, user.email || ""),
+    getWidgetSettings(user.id),
+    supabase
+      .from("tasks")
+      .select("id, title, status, priority, scheduled_date, goal_id, milestone_id")
+      .eq("user_id", user.id)
+      .eq("scheduled_date", today)
+      .order("priority", { ascending: false })
+      .order("created_at", { ascending: true })
+      .limit(50), // 최대 50개로 제한
+    supabase
+      .from("logs")
+      .select("log_date, mood")
+      .eq("user_id", user.id)
+      .gte("log_date", startDateStr)
+      .lte("log_date", today)
+      .limit(200), // 최대 200개로 제한
+  ])
 
-  const activityData = calculateActivityData((activityLogs as Log[]) || [])
+  const enabledWidgets = widgetSettings.filter((w) => w.is_enabled)
+  const todayTasks = (tasksRes.data as Task[]) || []
+  const completedTasks = todayTasks.filter((task) => task.status === "done").length
+  const totalTasks = todayTasks.length
+  const activityData = calculateActivityData((activityLogsRes.data as Log[]) || [])
 
   // Widget rendering function
   const renderWidget = (widgetType: WidgetType) => {
