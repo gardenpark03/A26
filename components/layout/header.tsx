@@ -1,13 +1,31 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { createBrowserClient } from "@supabase/ssr"
 import { LogoutButton } from "./logout-button"
 
-interface HeaderProps {
-  userEmail?: string
-  userName?: string
-}
+export function Header() {
+  const [userInfo, setUserInfo] = useState<{ email: string; name?: string } | null>(null)
 
-export function Header({ userEmail, userName }: HeaderProps) {
-  const displayName = userName || userEmail?.split("@")[0] || "User"
-  const initial = displayName[0].toUpperCase()
+  useEffect(() => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+
+    // 클라이언트에서 user 정보만 가져오기 (캐시됨)
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUserInfo({
+          email: user.email || "",
+          name: user.user_metadata?.full_name,
+        })
+      }
+    })
+  }, [])
+
+  const displayName = userInfo?.name || userInfo?.email?.split("@")[0] || "User"
+  const initial = displayName[0]?.toUpperCase() || "U"
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -23,8 +41,8 @@ export function Header({ userEmail, userName }: HeaderProps) {
             </div>
             <div className="hidden sm:block">
               <p className="text-sm font-medium">{displayName}</p>
-              {userEmail && (
-                <p className="text-xs text-muted-foreground">{userEmail}</p>
+              {userInfo?.email && (
+                <p className="text-xs text-muted-foreground">{userInfo.email}</p>
               )}
             </div>
           </div>

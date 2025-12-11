@@ -1,30 +1,13 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
 import { Sidebar } from "@/components/layout/sidebar"
 import { Header } from "@/components/layout/header"
 
-export default async function AppLayout({
+export default function AppLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-  
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
-
-  // Fetch only required profile fields
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, username")
-    .eq("id", user.id)
-    .single()
-
+  // 순수 레이아웃 - 데이터 fetch 없음
+  // Auth check는 middleware에서 처리됨
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
@@ -33,10 +16,7 @@ export default async function AppLayout({
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <Header 
-          userEmail={user.email} 
-          userName={profile?.full_name || profile?.username}
-        />
+        <Header />
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto">
