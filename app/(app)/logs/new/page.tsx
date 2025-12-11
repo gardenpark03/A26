@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -133,12 +134,8 @@ export default async function NewLogPage() {
               <Button type="submit" className="flex-1">
                 Save Log
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => window.history.back()}
-              >
-                Cancel
+              <Button asChild variant="outline">
+                <Link href="/logs">Cancel</Link>
               </Button>
             </div>
           </form>

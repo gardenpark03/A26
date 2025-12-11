@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -107,12 +108,8 @@ export default async function NewGoalPage() {
               <Button type="submit" className="flex-1">
                 Create Goal
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => window.history.back()}
-              >
-                Cancel
+              <Button asChild variant="outline">
+                <Link href="/goals">Cancel</Link>
               </Button>
             </div>
           </form>
