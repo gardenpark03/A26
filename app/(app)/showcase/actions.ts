@@ -10,26 +10,40 @@ export async function updateShowcaseProfile(formData: FormData) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    console.error("Unauthorized")
-    return
+    throw new Error("Unauthorized")
   }
 
   const handle = formData.get("handle") as string
   const bio = formData.get("bio") as string
   const isPublic = formData.get("is_public") === "on"
 
+  // Ensure profile exists
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .single()
+
+  if (!profile) {
+    // Create profile if it doesn't exist
+    await supabase.from("profiles").insert({
+      id: user.id,
+      email: user.email,
+      created_at: new Date().toISOString(),
+    })
+  }
+
   // Check if handle is already taken by another user
-  if (handle) {
+  if (handle?.trim()) {
     const { data: existingUser } = await supabase
       .from("profiles")
       .select("id")
-      .eq("handle", handle)
+      .eq("handle", handle.trim())
       .neq("id", user.id)
       .single()
 
     if (existingUser) {
-      console.error("이 핸들은 이미 사용 중입니다")
-      return
+      throw new Error("이 핸들은 이미 사용 중입니다")
     }
   }
 
@@ -37,18 +51,20 @@ export async function updateShowcaseProfile(formData: FormData) {
   const { error } = await supabase
     .from("profiles")
     .update({
-      handle: handle || null,
-      bio: bio || null,
+      handle: handle?.trim() || null,
+      bio: bio?.trim() || null,
       is_public: isPublic,
+      updated_at: new Date().toISOString(),
     })
     .eq("id", user.id)
 
   if (error) {
     console.error("Error updating profile:", error)
-    return
+    throw new Error(`프로필 업데이트 실패: ${error.message}`)
   }
 
   revalidatePath("/showcase")
+  revalidatePath("/settings/profile")
 }
 
 export async function addShowcaseItem(

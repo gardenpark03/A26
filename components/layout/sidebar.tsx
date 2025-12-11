@@ -17,6 +17,7 @@ import {
   Repeat,
   Network,
   Trophy,
+  User,
 } from "lucide-react"
 
 interface NavItem {
@@ -126,6 +127,16 @@ const navigation: NavSection[] = [
         title: "My Showcase",
         href: "/showcase",
         icon: Presentation,
+      },
+    ],
+  },
+  {
+    title: "Settings",
+    items: [
+      {
+        title: "Profile",
+        href: "/settings/profile",
+        icon: User,
       },
     ],
   },
