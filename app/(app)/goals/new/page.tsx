@@ -23,22 +23,36 @@ async function createGoal(formData: FormData) {
   const description = formData.get("description") as string
   const year = parseInt(formData.get("year") as string) || 2026
 
-  if (!title) {
-    console.error("Title is required")
-    return
+  if (!title?.trim()) {
+    throw new Error("Title is required")
+  }
+
+  // 먼저 profile이 있는지 확인하고 없으면 생성
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .single()
+
+  if (!profile) {
+    await supabase.from("profiles").insert({
+      id: user.id,
+      email: user.email,
+      created_at: new Date().toISOString(),
+    })
   }
 
   const { error } = await supabase.from("goals").insert({
     user_id: user.id,
-    title,
-    description: description || null,
+    title: title.trim(),
+    description: description?.trim() || null,
     year,
     status: "active",
   })
 
   if (error) {
     console.error("Error creating goal:", error)
-    return
+    throw new Error(`Failed to create goal: ${error.message}`)
   }
 
   redirect("/goals")

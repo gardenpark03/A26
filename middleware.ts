@@ -29,8 +29,14 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh session if expired - required for Server Components
-  await supabase.auth.getUser()
+  // 공개 경로는 세션 체크 건너뛰기 (성능 개선)
+  const publicPaths = ['/', '/login', '/signup', '/u/']
+  const isPublicPath = publicPaths.some(path => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith('/u/'))
+  
+  if (!isPublicPath) {
+    // Refresh session if expired - required for Server Components
+    await supabase.auth.getUser()
+  }
 
   return response
 }
