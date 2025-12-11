@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -8,12 +8,18 @@ import { Button } from "@/components/ui/button"
 
 interface QuickMemoProps {
   onSave: (content: string) => Promise<any>
+  initialContent?: string
 }
 
-export function QuickMemo({ onSave }: QuickMemoProps) {
+export function QuickMemo({ onSave, initialContent = "" }: QuickMemoProps) {
   const router = useRouter()
-  const [content, setContent] = useState("")
+  const [content, setContent] = useState(initialContent)
   const [isPending, startTransition] = useTransition()
+
+  // initialContent가 변경되면 업데이트 (서버에서 새로고침된 경우)
+  useEffect(() => {
+    setContent(initialContent)
+  }, [initialContent])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,9 +29,18 @@ export function QuickMemo({ onSave }: QuickMemoProps) {
     }
 
     startTransition(async () => {
-      await onSave(content)
-      setContent("")
-      router.refresh()
+      try {
+        const result = await onSave(content)
+        if (result?.error) {
+          alert(`저장 실패: ${result.error}`)
+          return
+        }
+        // 저장 성공 - 내용은 유지하고 페이지 새로고침으로 서버 상태 동기화
+        router.refresh()
+      } catch (error) {
+        console.error("Error saving memo:", error)
+        alert("저장 중 오류가 발생했습니다")
+      }
     })
   }
 
@@ -34,7 +49,7 @@ export function QuickMemo({ onSave }: QuickMemoProps) {
       <CardHeader>
         <CardTitle>Quick Memo</CardTitle>
         <CardDescription>
-          오늘의 간단한 메모를 기록하세요
+          대시보드에 바로 저장되는 빠른 메모입니다
         </CardDescription>
       </CardHeader>
       <CardContent>

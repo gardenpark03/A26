@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { updateProfileAction } from "@/app/(app)/settings/profile/actions"
 import { AvatarUploader } from "@/components/profile/avatar-uploader"
@@ -19,6 +20,7 @@ interface ProfileFormProps {
 }
 
 export function ProfileForm({ profile, userId, userEmail }: ProfileFormProps) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || "")
   const [isPublic, setIsPublic] = useState(profile?.is_public ?? false)
@@ -27,6 +29,8 @@ export function ProfileForm({ profile, userId, userEmail }: ProfileFormProps) {
     startTransition(async () => {
       try {
         await updateProfileAction(formData)
+        // 프로필 업데이트 후 헤더를 새로고침하기 위해 router.refresh() 호출
+        router.refresh()
       } catch (error) {
         console.error("Error updating profile:", error)
         alert(error instanceof Error ? error.message : "프로필 업데이트 실패")

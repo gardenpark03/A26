@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ForkSuccessMessage } from "@/components/goals/fork-success-message"
 import type { Goal, Milestone, Task } from "@/lib/types"
 
 async function createMilestone(formData: FormData) {
@@ -28,16 +29,27 @@ async function createMilestone(formData: FormData) {
   const startDate = formData.get("start_date") as string
   const dueDate = formData.get("due_date") as string
 
-  if (!title || !goalId) {
-    console.error("Title and Goal ID are required")
-    return
+  if (!title?.trim() || !goalId) {
+    throw new Error("Title and Goal ID are required")
+  }
+
+  // Goal이 존재하는지 확인
+  const { data: goal } = await supabase
+    .from("goals")
+    .select("id")
+    .eq("id", goalId)
+    .eq("user_id", user.id)
+    .single()
+
+  if (!goal) {
+    throw new Error("Goal not found")
   }
 
   const { error } = await supabase.from("milestones").insert({
     user_id: user.id,
     goal_id: goalId,
-    title,
-    description: description || null,
+    title: title.trim(),
+    description: description?.trim() || null,
     start_date: startDate || null,
     due_date: dueDate || null,
     status: "pending",
@@ -45,7 +57,7 @@ async function createMilestone(formData: FormData) {
 
   if (error) {
     console.error("Error creating milestone:", error)
-    return
+    throw new Error(`Failed to create milestone: ${error.message}`)
   }
 
   redirect(`/goals/${goalId}`)
@@ -69,18 +81,47 @@ async function createTask(formData: FormData) {
   const description = formData.get("description") as string
   const scheduledDate = formData.get("scheduled_date") as string
 
-  if (!title || !goalId) {
-    console.error("Title and Goal ID are required")
-    return
+  if (!title?.trim() || !goalId) {
+    throw new Error("Title and Goal ID are required")
   }
+
+  // Goal이 존재하는지 확인
+  const { data: goal } = await supabase
+    .from("goals")
+    .select("id")
+    .eq("id", goalId)
+    .eq("user_id", user.id)
+    .single()
+
+  if (!goal) {
+    throw new Error("Goal not found")
+  }
+
+  // Milestone이 제공된 경우 유효성 확인
+  if (milestoneId) {
+    const { data: milestone } = await supabase
+      .from("milestones")
+      .select("id")
+      .eq("id", milestoneId)
+      .eq("goal_id", goalId)
+      .single()
+
+    if (!milestone) {
+      throw new Error("Invalid milestone")
+    }
+  }
+
+  // scheduled_date가 없으면 오늘 날짜로 기본값 설정 (대시보드에 표시되도록)
+  const today = new Date().toISOString().split("T")[0]
+  const finalScheduledDate = scheduledDate || today
 
   const { error } = await supabase.from("tasks").insert({
     user_id: user.id,
     goal_id: goalId,
     milestone_id: milestoneId || null,
-    title,
-    description: description || null,
-    scheduled_date: scheduledDate || null,
+    title: title.trim(),
+    description: description?.trim() || null,
+    scheduled_date: finalScheduledDate,
     status: "todo",
     priority: "normal",
     source: "manual",
@@ -88,7 +129,7 @@ async function createTask(formData: FormData) {
 
   if (error) {
     console.error("Error creating task:", error)
-    return
+    throw new Error(`Failed to create task: ${error.message}`)
   }
 
   redirect(`/goals/${goalId}`)
@@ -98,10 +139,14 @@ interface PageProps {
   params: Promise<{
     goalId: string
   }>
+  searchParams: Promise<{
+    forked?: string
+  }>
 }
 
-export default async function GoalDetailPage({ params }: PageProps) {
+export default async function GoalDetailPage({ params, searchParams }: PageProps) {
   const { goalId } = await params
+  const { forked } = await searchParams
   const supabase = await createClient()
   
   const {
@@ -160,6 +205,9 @@ export default async function GoalDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
+      {/* Fork Success Message */}
+      <ForkSuccessMessage />
+
       {/* Goal Header */}
       <div>
         {/* Forked From Badge */}

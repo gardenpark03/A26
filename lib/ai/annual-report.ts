@@ -142,7 +142,7 @@ Based on this comprehensive data, generate a deeply personal and insightful annu
 
   try {
     const result = await generateObject({
-      model: anthropic("claude-3-5-sonnet-20241022"),
+      model: anthropic("claude-sonnet-4-5-20250929"),
       schema: annualReportContentSchema,
       system: SYSTEM_PROMPT,
       prompt: userPrompt,

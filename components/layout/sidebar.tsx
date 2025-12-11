@@ -8,14 +8,12 @@ import {
   Target,
   Sparkles,
   BookOpen,
-  PenLine,
   BarChart3,
   Settings,
   Presentation,
   Calendar,
   Bot,
   Repeat,
-  Network,
   Trophy,
   User,
 } from "lucide-react"
@@ -36,6 +34,11 @@ const navigation: NavSection[] = [
   {
     title: "Home",
     items: [
+      {
+        title: "Main",
+        href: "/main",
+        icon: LayoutDashboard,
+      },
       {
         title: "Dashboard",
         href: "/dashboard",
@@ -89,11 +92,6 @@ const navigation: NavSection[] = [
     title: "Insights",
     items: [
       {
-        title: "Memory Graph",
-        href: "/graph",
-        icon: Network,
-      },
-      {
         title: "Annual Report",
         href: "/reports/annual",
         icon: Trophy,
@@ -107,11 +105,6 @@ const navigation: NavSection[] = [
         title: "Daily Logs",
         href: "/logs",
         icon: BookOpen,
-      },
-      {
-        title: "New Log",
-        href: "/logs/new",
-        icon: PenLine,
       },
       {
         title: "Habits",
@@ -149,7 +142,7 @@ export function Sidebar() {
     <div className="flex h-full w-64 flex-col border-r bg-background">
       {/* Logo */}
       <div className="flex h-14 items-center border-b px-6">
-        <Link href="/dashboard" className="flex items-center gap-2">
+        <Link href="/main" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">
             A26
           </div>

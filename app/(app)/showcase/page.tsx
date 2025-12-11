@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { ArrowLeft } from "lucide-react"
 import { updateShowcaseProfile, addShowcaseItem, removeShowcaseItem, updateShowcaseItemOrder, toggleShowcasePin } from "./actions"
 import { ShowcaseItemCard } from "@/components/showcase/showcase-item-card"
 import type { ShowcaseItem } from "@/lib/showcase/types"
@@ -64,11 +65,18 @@ export default async function ShowcasePage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Showcase Settings</h1>
-          <p className="text-muted-foreground mt-2">
-            나의 2026년을 전시하세요
-          </p>
+        <div className="flex items-center gap-4">
+          <Link href="/main">
+            <Button variant="ghost" size="icon" className="h-9 w-9">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Showcase Settings</h1>
+            <p className="text-muted-foreground mt-2">
+              나의 2026년을 전시하세요
+            </p>
+          </div>
         </div>
         {publicUrl && (
           <Link href={publicUrl} target="_blank">

@@ -70,7 +70,7 @@ Please rewrite this as a more polished, reflective journal entry. Keep all the o
 
   try {
     const result = await generateText({
-      model: anthropic("claude-3-5-sonnet-20241022"),
+      model: anthropic("claude-sonnet-4-5-20250929"),
       system: SYSTEM_PROMPT,
       prompt: userPrompt,
       temperature: 0.7,

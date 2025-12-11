@@ -47,19 +47,33 @@ export async function forkGoalPlanAction(params: {
     }
 
     // 3. Get source milestones
-    const { data: sourceMilestones } = await supabase
+    const { data: sourceMilestones, error: milestonesFetchError } = await supabase
       .from("milestones")
       .select("*")
       .eq("goal_id", sourceGoal.id)
       .eq("user_id", sourceProfile.id)
       .order("order_index", { ascending: true })
 
+    if (milestonesFetchError) {
+      console.error("Error fetching source milestones:", milestonesFetchError)
+      // RLS 정책 문제일 수 있지만 계속 진행
+    }
+
+    console.log(`Fetched ${sourceMilestones?.length || 0} milestones for fork`)
+
     // 4. Get source tasks
-    const { data: sourceTasks } = await supabase
+    const { data: sourceTasks, error: tasksFetchError } = await supabase
       .from("tasks")
       .select("*")
       .eq("goal_id", sourceGoal.id)
       .eq("user_id", sourceProfile.id)
+
+    if (tasksFetchError) {
+      console.error("Error fetching source tasks:", tasksFetchError)
+      // RLS 정책 문제일 수 있지만 계속 진행
+    }
+
+    console.log(`Fetched ${sourceTasks?.length || 0} tasks for fork`)
 
     // 5. Create new goal (forked)
     const { data: newGoal, error: newGoalError } = await supabase
@@ -86,6 +100,8 @@ export async function forkGoalPlanAction(params: {
     const milestoneIdMap = new Map<string, string>()
 
     if (sourceMilestones && sourceMilestones.length > 0) {
+      console.log(`Creating ${sourceMilestones.length} milestones...`)
+      
       const newMilestones = sourceMilestones.map((m) => ({
         user_id: user.id,
         goal_id: newGoal.id,
@@ -104,18 +120,32 @@ export async function forkGoalPlanAction(params: {
 
       if (milestonesError) {
         console.error("Error creating milestones:", milestonesError)
-        return { error: "Milestones 생성 실패" }
+        console.error("Milestones data:", newMilestones)
+        return { error: `Milestones 생성 실패: ${milestonesError.message}` }
       }
 
+      if (!createdMilestones || createdMilestones.length === 0) {
+        console.error("No milestones were created")
+        return { error: "Milestones 생성 실패: 생성된 milestone이 없습니다" }
+      }
+
+      console.log(`Successfully created ${createdMilestones.length} milestones`)
+
       // Build milestone ID mapping
-      createdMilestones?.forEach((newM: any, idx: number) => {
+      createdMilestones.forEach((newM: any, idx: number) => {
         const oldM = sourceMilestones[idx]
-        milestoneIdMap.set(oldM.id, newM.id)
+        if (oldM && newM) {
+          milestoneIdMap.set(oldM.id, newM.id)
+        }
       })
+    } else {
+      console.log("No milestones to copy")
     }
 
     // 7. Copy tasks
     if (sourceTasks && sourceTasks.length > 0) {
+      console.log(`Creating ${sourceTasks.length} tasks...`)
+      
       const newTasks = sourceTasks.map((t) => ({
         user_id: user.id,
         goal_id: newGoal.id,
@@ -125,22 +155,33 @@ export async function forkGoalPlanAction(params: {
         scheduled_date: t.scheduled_date,
         due_date: t.due_date,
         status: "todo" as const,
-        priority: t.priority,
+        priority: t.priority || "normal",
         source: "fork" as const,
       }))
 
-      const { error: tasksError } = await supabase
+      const { data: createdTasks, error: tasksError } = await supabase
         .from("tasks")
         .insert(newTasks)
+        .select()
 
       if (tasksError) {
         console.error("Error creating tasks:", tasksError)
-        return { error: "Tasks 생성 실패" }
+        console.error("Tasks data:", newTasks)
+        return { error: `Tasks 생성 실패: ${tasksError.message}` }
       }
+
+      if (!createdTasks || createdTasks.length === 0) {
+        console.error("No tasks were created")
+        return { error: "Tasks 생성 실패: 생성된 task가 없습니다" }
+      }
+
+      console.log(`Successfully created ${createdTasks.length} tasks`)
+    } else {
+      console.log("No tasks to copy")
     }
 
-    // Success! Redirect to new goal page
-    redirect(`/goals/${newGoal.id}`)
+    // Success! Redirect to new goal page with success message
+    redirect(`/goals/${newGoal.id}?forked=success`)
   } catch (error: any) {
     console.error("Error in forkGoalPlanAction:", error)
     return { error: error.message || "Fork 실패" }

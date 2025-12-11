@@ -53,7 +53,7 @@ Generate relevant tags for this content.`
 
   try {
     const result = await generateObject({
-      model: anthropic("claude-3-5-sonnet-20241022"),
+      model: anthropic("claude-sonnet-4-5-20250929"),
       schema: tagSchema,
       system: SYSTEM_PROMPT,
       prompt: userPrompt,

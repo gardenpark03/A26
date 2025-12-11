@@ -58,7 +58,11 @@ export async function generateRoadmap(userGoal: string): Promise<Roadmap> {
   const apiKey = process.env.ANTHROPIC_API_KEY
 
   if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY is not configured")
+    throw new Error("ANTHROPIC_API_KEY 환경 변수가 설정되지 않았습니다. Vercel 환경 변수 설정을 확인하세요.")
+  }
+
+  if (!userGoal?.trim()) {
+    throw new Error("목표를 입력해주세요.")
   }
 
   const userPrompt = `User's Goal for 2026:
@@ -79,17 +83,33 @@ Return only the structured JSON output.`
 
   try {
     const result = await generateObject({
-      model: anthropic("claude-3-5-sonnet-20241022"),
+      model: anthropic("claude-sonnet-4-5-20250929"),
       schema: roadmapSchema,
       system: SYSTEM_PROMPT,
       prompt: userPrompt,
       temperature: 0.7,
+      maxRetries: 2,
     })
 
     return result.object
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating roadmap:", error)
-    throw new Error("Failed to generate roadmap from AI")
+    
+    // 더 자세한 에러 메시지 제공
+    if (error.message?.includes("API key")) {
+      throw new Error("ANTHROPIC_API_KEY가 설정되지 않았습니다. 환경 변수를 확인하세요.")
+    }
+    
+    if (error.message?.includes("rate limit") || error.status === 429) {
+      throw new Error("API 호출 한도에 도달했습니다. 잠시 후 다시 시도하세요.")
+    }
+    
+    if (error.status === 401) {
+      throw new Error("API 키가 유효하지 않습니다. ANTHROPIC_API_KEY를 확인하세요.")
+    }
+    
+    // 원본 에러 메시지 포함
+    throw new Error(`Failed to generate roadmap from AI: ${error.message || error.toString()}`)
   }
 }
 

@@ -17,12 +17,17 @@ async function resolveShowcaseItems(userId: string): Promise<ShowcaseItemResolve
   const supabase = await createClient()
 
   // Get showcase items
-  const { data: showcaseItems } = await supabase
+  const { data: showcaseItems, error: showcaseError } = await supabase
     .from("showcase_items")
     .select("*")
     .eq("user_id", userId)
     .order("is_pinned", { ascending: false })
     .order("order_index", { ascending: true })
+
+  if (showcaseError) {
+    console.error("Error fetching showcase items:", showcaseError)
+    return []
+  }
 
   if (!showcaseItems || showcaseItems.length === 0) {
     return []
@@ -36,38 +41,44 @@ async function resolveShowcaseItems(userId: string): Promise<ShowcaseItemResolve
     let meta: any = {}
 
     if (item.item_type === "goal") {
-      const { data: goal } = await supabase
+      const { data: goal, error: goalError } = await supabase
         .from("goals")
         .select("*")
         .eq("id", item.item_id)
         .single()
 
-      if (goal) {
+      if (goalError) {
+        console.error(`Error fetching goal ${item.item_id}:`, goalError)
+      } else if (goal) {
         title = goal.title
         description = goal.description
         meta = { year: goal.year, status: goal.status, goal_id: goal.id, goalId: goal.id }
       }
     } else if (item.item_type === "log") {
-      const { data: log } = await supabase
+      const { data: log, error: logError } = await supabase
         .from("logs")
         .select("*")
         .eq("id", item.item_id)
         .eq("visibility", "public")
         .single()
 
-      if (log) {
+      if (logError) {
+        console.error(`Error fetching log ${item.item_id}:`, logError)
+      } else if (log) {
         title = log.title || "(제목 없음)"
         description = log.content?.slice(0, 200) + (log.content?.length > 200 ? "..." : "")
         meta = { date: log.log_date, tags: log.tags }
       }
     } else if (item.item_type === "project") {
-      const { data: project } = await supabase
+      const { data: project, error: projectError } = await supabase
         .from("projects")
         .select("*")
         .eq("id", item.item_id)
         .single()
 
-      if (project) {
+      if (projectError) {
+        console.error(`Error fetching project ${item.item_id}:`, projectError)
+      } else if (project) {
         title = project.title
         description = project.description
       }

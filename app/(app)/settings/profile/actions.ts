@@ -66,6 +66,8 @@ export async function updateProfileAction(formData: FormData) {
     throw new Error(`프로필 업데이트 실패: ${error.message}`)
   }
 
+  // 헤더가 모든 페이지에 있으므로 모든 경로 revalidate
+  revalidatePath("/", "layout")
   revalidatePath("/settings/profile")
   revalidatePath("/showcase")
 }

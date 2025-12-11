@@ -52,18 +52,17 @@ async function saveQuickMemo(content: string) {
     return { error: "Unauthorized" }
   }
 
-  const today = new Date().toISOString().split("T")[0]
-
-  const { error } = await supabase.from("logs").insert({
-    user_id: user.id,
-    title: "Quick Memo",
-    content,
-    log_date: today,
-    visibility: "private",
-  })
+  // profiles 테이블의 quick_memo_content에 저장
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      quick_memo_content: content,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id)
 
   if (error) {
-    console.error("Error saving memo:", error)
+    console.error("Error saving quick memo:", error)
     return { error: error.message }
   }
 
@@ -75,7 +74,7 @@ async function getOrCreateProfile(userId: string, userEmail: string) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, full_name, username")
+    .select("id, full_name, username, quick_memo_content")
     .eq("id", userId)
     .single()
 
@@ -92,7 +91,7 @@ async function getOrCreateProfile(userId: string, userEmail: string) {
         username,
         full_name: username,
       })
-      .select("id, full_name, username")
+      .select("id, full_name, username, quick_memo_content")
       .single()
 
     if (insertError) {
@@ -200,7 +199,7 @@ export default async function DashboardPage() {
     getWidgetSettings(user.id),
     supabase
       .from("tasks")
-      .select("id, title, status, priority, scheduled_date, goal_id, milestone_id")
+      .select("id, title, status, priority, scheduled_date, goal_id, milestone_id, created_at")
       .eq("user_id", user.id)
       .eq("scheduled_date", today)
       .order("priority", { ascending: false })
@@ -291,7 +290,10 @@ export default async function DashboardPage() {
       case "quick_memo":
         return (
           <Card key="quick_memo">
-            <QuickMemo onSave={saveQuickMemo} />
+            <QuickMemo 
+              onSave={saveQuickMemo} 
+              initialContent={profile?.quick_memo_content || ""}
+            />
           </Card>
         )
 

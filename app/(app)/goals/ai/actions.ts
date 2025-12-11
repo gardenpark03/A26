@@ -18,12 +18,17 @@ export async function generateRoadmapAction(userGoal: string) {
       return { error: "Unauthorized" }
     }
 
+    if (!userGoal?.trim()) {
+      return { error: "목표를 입력해주세요." }
+    }
+
     // Call Claude API to generate roadmap
-    const roadmap = await generateRoadmap(userGoal)
+    const roadmap = await generateRoadmap(userGoal.trim())
 
     return { success: true, roadmap }
   } catch (error: any) {
     console.error("Error generating roadmap:", error)
+    // 에러 메시지를 그대로 전달 (이미 상세한 메시지가 포함됨)
     return { error: error.message || "Failed to generate roadmap" }
   }
 }
