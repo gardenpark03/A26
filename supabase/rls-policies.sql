@@ -26,3 +26,4 @@ drop policy if exists "goals_own" on goals;
 create policy "goals_own" on goals
   for all using (auth.uid() = user_id);
 
+

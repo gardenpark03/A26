@@ -228,18 +228,18 @@ export default async function DashboardPage() {
 
       case "today_tasks":
         return (
-          <Card key="today_tasks">
+          <Card key="today_tasks" className="bg-brand-mist/20 border-brand-mist/20 shadow-none">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Today's Tasks</CardTitle>
+                  <CardTitle className="text-brand-ink">Today's Tasks</CardTitle>
                   <CardDescription>
                     오늘 완료해야 할 작업들 ({completedTasks}/{totalTasks} 완료)
                   </CardDescription>
                 </div>
                 {totalTasks > 0 && (
                   <div className="text-right">
-                    <div className="text-2xl font-bold">
+                    <div className="text-2xl font-bold text-brand-ink">
                       {Math.round((completedTasks / totalTasks) * 100)}%
                     </div>
                     <div className="text-xs text-muted-foreground">완료율</div>
@@ -273,7 +273,7 @@ export default async function DashboardPage() {
 
       case "activity_mood":
         return (
-          <Card key="activity_mood">
+          <Card key="activity_mood" className="bg-brand-cloud/60 border-white shadow-sm">
             <CardHeader>
               <CardTitle>Activity & Mood Tracker</CardTitle>
               <CardDescription>
@@ -289,7 +289,7 @@ export default async function DashboardPage() {
 
       case "quick_memo":
         return (
-          <Card key="quick_memo">
+          <Card key="quick_memo" className="bg-brand-peach/20 border-brand-peach/30 shadow-none">
             <QuickMemo 
               onSave={saveQuickMemo} 
               initialContent={profile?.quick_memo_content || ""}

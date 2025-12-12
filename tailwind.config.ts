@@ -52,6 +52,14 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // OneSpace Brand Palette
+        brand: {
+          lavender: "#E9E6FF",
+          mist: "#DDEAFF",
+          peach: "#FFE9DD",
+          cloud: "#F4F4F4",
+          ink: "#1A1A1A",
+        }
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -67,10 +75,15 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "slide-in-right": {
+            "0%": { transform: "translateX(100%)" },
+            "100%": { transform: "translateX(0)" }
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "slide-in-right": "slide-in-right 0.3s ease-out",
       },
     },
   },
@@ -78,4 +91,3 @@ const config = {
 } satisfies Config
 
 export default config
-
