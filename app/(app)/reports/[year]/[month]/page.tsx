@@ -4,8 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { StatCard } from "@/components/reports/stat-card"
-import { SummaryCard } from "@/components/reports/summary-card"
-import { generateMonthlyReport, type MonthlyStats } from "@/lib/ai/monthly-report"
+import { Lock, Sparkles } from "lucide-react"
 
 interface PageProps {
   params: Promise<{
@@ -35,7 +34,7 @@ export default async function MonthlyReportPage({ params }: PageProps) {
 
   // Calculate date range for the month
   const startDate = new Date(year, month - 1, 1)
-  const endDate = new Date(year, month, 0, 23, 59, 59) // Last day of the month
+  const endDate = new Date(year, month, 0, 23, 59, 59)
   const startDateStr = startDate.toISOString().split("T")[0]
   const endDateStr = endDate.toISOString().split("T")[0]
 
@@ -67,40 +66,12 @@ export default async function MonthlyReportPage({ params }: PageProps) {
     .lte("log_date", endDateStr)
     .order("log_date", { ascending: true })
 
-  // Combine logs content (limit to 3000 chars for AI)
-  const logsTextSample = logs
-    ?.map((log) => `[${log.log_date}] ${log.title || ""}\n${log.content}`)
-    .join("\n\n")
-    .slice(0, 3000) || ""
-
   // Calculate completion rate
   const completionRate =
     totalTaskCount > 0 ? Math.round((completedTaskCount / totalTaskCount) * 100) : 0
 
-  // Prepare stats for AI
-  const stats: MonthlyStats = {
-    year,
-    month,
-    completedTaskCount,
-    totalTaskCount,
-    highPriorityCompletedCount,
-    logsTextSample,
-  }
-
-  // Check if there's enough data
+  // AI Reporting is currently disabled / Premium only
   const hasEnoughData = completedTaskCount > 0 || (logs && logs.length > 0)
-
-  let report = null
-  let error = null
-
-  if (hasEnoughData) {
-    try {
-      report = await generateMonthlyReport(stats)
-    } catch (err: any) {
-      console.error("Error generating report:", err)
-      error = err.message
-    }
-  }
 
   const monthName = new Date(year, month - 1).toLocaleDateString("ko-KR", {
     year: "numeric",
@@ -108,161 +79,81 @@ export default async function MonthlyReportPage({ params }: PageProps) {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Monthly Report</h1>
-          <p className="text-muted-foreground mt-2">{monthName}</p>
+          <div className="flex items-center gap-2 mb-1">
+             <span className="text-sm font-semibold text-primary uppercase tracking-wider">Analytics</span>
+          </div>
+          <h1 className="text-page-title">Monthly Report</h1>
+          <p className="text-body mt-1">{monthName}의 기록과 성장 데이터입니다.</p>
         </div>
         <Link href="/dashboard">
-          <Button variant="outline">← Dashboard</Button>
+          <Button variant="outline" size="sm">← Back</Button>
         </Link>
       </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="총 태스크"
+          label="Total Tasks"
           value={totalTaskCount}
           icon="📋"
-          description="이번 달 예정된 태스크"
+          description="예정된 작업"
         />
         <StatCard
-          label="완료한 태스크"
+          label="Completed"
           value={completedTaskCount}
           icon="✅"
-          description={`${completionRate}% 달성`}
+          description={`${completionRate}% 완료율`}
         />
         <StatCard
-          label="우선순위 높음"
+          label="Focus Work"
           value={highPriorityCompletedCount}
           icon="🔥"
-          description="완료된 중요 태스크"
+          description="중요 목표 달성"
         />
         <StatCard
-          label="작성한 기록"
+          label="Daily Logs"
           value={logs?.length || 0}
           icon="📝"
-          description="Daily Logs"
+          description="기록된 하루"
         />
       </div>
 
-      {/* No Data Message */}
-      {!hasEnoughData && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="text-6xl mb-4">📊</div>
-            <p className="text-xl font-semibold mb-2">데이터가 부족합니다</p>
-            <p className="text-muted-foreground text-center max-w-md">
-              이번 달에는 완료된 태스크나 작성된 기록이 없어서 AI 리포트를 생성할 수 없습니다.
-              <br />
-              더 많은 활동을 기록하고 다시 확인해보세요!
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Error Message */}
-      {error && (
-        <Card className="border-destructive">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">⚠️</span>
-              <div>
-                <p className="font-semibold text-destructive">
-                  리포트 생성 중 오류가 발생했습니다
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">{error}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* AI Report */}
-      {report && (
-        <div className="space-y-6">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🤖</span>
-            <h2 className="text-2xl font-bold">AI 분석 리포트</h2>
-          </div>
-
-          {/* Month Summary */}
-          <SummaryCard
-            title="이번 달 요약"
-            content={report.monthSummary}
-            icon="📝"
-            variant="default"
-          />
-
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Highlights */}
-            <SummaryCard
-              title="잘한 점"
-              content={report.highlights}
-              icon="🌟"
-              variant="highlight"
-            />
-
-            {/* Challenges */}
-            <SummaryCard
-              title="개선이 필요한 점"
-              content={report.challenges}
-              icon="💪"
-              variant="challenge"
-            />
-          </div>
-
-          {/* Next Month Suggestions */}
-          <SummaryCard
-            title="다음 달 제안"
-            content={report.nextMonthSuggestions}
-            icon="🎯"
-            variant="suggestion"
-          />
-
-          {/* Meta Info */}
-          <Card className="bg-muted/50">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <span>🤖</span>
-                  <span>
-                    이 리포트는 Claude AI가 당신의 {completedTaskCount}개 완료
-                    태스크와 {logs?.length || 0}개 일일 기록을 분석하여
-                    생성했습니다.
-                  </span>
+      {/* Premium Feature Block (AI Analysis) */}
+      <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-1">
+        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))]" />
+        <Card className="border-0 bg-background/60 backdrop-blur-sm shadow-none">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                    <Sparkles className="w-6 h-6 text-primary" />
                 </div>
-              </div>
+                <h3 className="text-xl font-semibold text-foreground">
+                    Unlock AI Analysis
+                </h3>
+                <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
+                    AI가 당신의 한 달을 분석하여 의미 있는 패턴과 성장 포인트를 찾아줍니다.<br/>
+                    Premium 플랜에서 더 깊은 통찰력을 얻으세요.
+                </p>
+                <div className="flex gap-3 pt-4">
+                    <Button className="shadow-lg shadow-primary/20">
+                        <Lock className="w-4 h-4 mr-2" />
+                        Upgrade to Premium
+                    </Button>
+                    <Button variant="outline">Learn More</Button>
+                </div>
             </CardContent>
-          </Card>
-        </div>
-      )}
+        </Card>
+      </div>
 
       {/* Navigation */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Link href="/dashboard" className="flex-1">
-              <Button variant="outline" className="w-full">
-                대시보드로 돌아가기
-              </Button>
-            </Link>
-            <Link href="/goals" className="flex-1">
-              <Button variant="outline" className="w-full">
-                목표 관리
-              </Button>
-            </Link>
-            <Link href="/logs" className="flex-1">
-              <Button variant="outline" className="w-full">
-                일일 기록
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex justify-end pt-4">
+         <div className="text-xs text-muted-foreground">
+            Archive 26 • Life OS v2.0
+         </div>
+      </div>
     </div>
   )
 }
-
