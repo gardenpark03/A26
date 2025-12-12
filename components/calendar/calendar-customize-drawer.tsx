@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { upsertCalendarMarkAction, updateCalendarPrefsAction } from "@/app/(app)/calendar/actions";
-import type { CalendarMark } from "@/lib/calendar/types";
+import type { CalendarMark, CalendarMarkType } from "@/lib/calendar/types";
 
 interface CalendarCustomizeDrawerProps {
   open: boolean;
@@ -47,7 +47,7 @@ export function CalendarCustomizeDrawer({
   const [accent, setAccent] = useState(currentPrefs.calendar_accent);
   const [emoji, setEmoji] = useState(currentMark?.emoji || "");
   const [note, setNote] = useState(currentMark?.note || "");
-  const [markType, setMarkType] = useState(currentMark?.type || "highlight");
+  const [markType, setMarkType] = useState<CalendarMarkType>(currentMark?.type || "highlight");
   const [saving, setSaving] = useState(false);
 
   const handleSaveTheme = async () => {
@@ -186,7 +186,7 @@ export function CalendarCustomizeDrawer({
 
                 <div>
                   <Label htmlFor="markType">Mark Type</Label>
-                  <Select value={markType} onValueChange={setMarkType}>
+                  <Select value={markType} onValueChange={(value) => setMarkType(value as CalendarMarkType)}>
                     <SelectTrigger id="markType">
                       <SelectValue />
                     </SelectTrigger>

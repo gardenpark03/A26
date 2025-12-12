@@ -13,11 +13,13 @@ type ThemeProviderProps = {
 type ThemeProviderState = {
   theme: Theme
   setTheme: (theme: Theme) => void
+  toggleTheme: () => void
 }
 
 const initialState: ThemeProviderState = {
   theme: "system",
   setTheme: () => null,
+  toggleTheme: () => null,
 }
 
 const ThemeProviderContext = React.createContext<ThemeProviderState>(initialState)
@@ -25,7 +27,7 @@ const ThemeProviderContext = React.createContext<ThemeProviderState>(initialStat
 export function ThemeProvider({
   children,
   defaultTheme = "system",
-  storageKey = "onespace-theme",
+  storageKey = "archive26-theme",
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = React.useState<Theme>(defaultTheme)
@@ -61,6 +63,11 @@ export function ThemeProvider({
       localStorage.setItem(storageKey, theme)
       setTheme(theme)
     },
+    toggleTheme: () => {
+      const newTheme = theme === "light" ? "dark" : theme === "dark" ? "light" : "light"
+      localStorage.setItem(storageKey, newTheme)
+      setTheme(newTheme)
+    },
   }
 
   return (
@@ -78,3 +85,4 @@ export const useTheme = () => {
 
   return context
 }
+
